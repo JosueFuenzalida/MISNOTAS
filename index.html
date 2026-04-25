@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-title" content="Mis Notas">
 <meta name="theme-color" content="#111111">
 <title>Mis Notas — INACAP</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -67,9 +70,9 @@ body {
 .logo-arch {
   position: absolute;
   bottom: 0; right: 5px;
-  width: 7px; height: 20px;
+  width: 11px; height: 18px;
   background: var(--black2);
-  border-radius: 0px 0px 0 0;
+  border-radius: 6px 6px 0 0;
 }
 .logo-text-wrap { flex: 1; }
 .logo-title {
@@ -521,7 +524,7 @@ input:checked + .toggle-slider:before { transform: translateX(18px); background:
   </div>
   <div class="logo-text-wrap">
     <div class="logo-title">MIS <span>NOTAS</span></div>
-    <div class="logo-sub">INACAP · Calculadora· Josué F.</div>
+    <div class="logo-sub">INACAP · Calculadora</div>
   </div>
   <div class="btn-icon" onclick="exportData()" title="Exportar">📤</div>
 </div>
@@ -1174,6 +1177,15 @@ renderAll();
 setTimeout(()=>{
   document.getElementById('sb-'+data.subjects[0]?.id)?.classList.add('open');
 },80);
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js')
+      .then(r=>console.log('SW registrado'))
+      .catch(e=>console.log('SW error',e));
+  });
+}
 </script>
 </body>
 </html>
