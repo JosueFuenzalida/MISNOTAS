@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "novedades": [
+    "Versión inicial de Mis Notas INACAP",
+    "Calculadora con ponderación porcentual",
+    "Simulador de notas para 4.0, 5.0 y 6.0",
+    "Sistema de examen final configurable",
+    "Reordenamiento de asignaturas"
+  ]
+}
