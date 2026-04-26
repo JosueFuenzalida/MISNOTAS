@@ -219,9 +219,34 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:white;
 .empty-sub{font-size:13px;color:var(--text3);line-height:1.6;}
 
 /* FAB */
-.fab{position:fixed;bottom:22px;right:16px;height:52px;padding:0 20px;border-radius:10px;background:var(--red);border:none;color:white;cursor:pointer;z-index:150;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(212,43,43,0.45);transition:all 0.15s;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;}
-.fab:active{transform:scale(0.94);}
-.fab-plus{font-size:22px;line-height:1;margin-top:-1px;}
+.fab {
+  position: fixed;
+  bottom: 22px;
+  right: 16px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--red);
+  border: none;
+  color: white;
+  cursor: pointer;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(212,43,43,0.45);
+  transition: all 0.15s;
+}
+
+.fab:active {
+  transform: scale(0.94);
+}
+
+.fab-plus {
+  font-size: 32px;
+  line-height: 1;
+  margin: 0;
+}
 
 /* TOAST */
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--black4);border:1px solid rgba(255,255,255,0.12);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;z-index:300;opacity:0;pointer-events:none;transition:opacity 0.3s;white-space:nowrap;font-weight:500;}
@@ -284,7 +309,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:white;
 
 <!-- FAB -->
 <button class="fab" id="fab-btn" onclick="handleFab()">
-  <span class="fab-plus">+</span> Agregar
+  <span class="fab-plus">+</span>
 </button>
 
 <!-- TOAST -->
