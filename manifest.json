@@ -3,7 +3,7 @@
   "short_name": "Mis Notas",
   "description": "Calculadora de notas con ponderación porcentual para INACAP",
   "start_url": "/MISNOTAS/",
-  "scope": "/MISNOTAS/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#111111",
