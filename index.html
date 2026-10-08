@@ -559,7 +559,17 @@ function saveSettings() {
 function loadSettings() {
   try{const s=localStorage.getItem('notasU_settings');if(s)settings=JSON.parse(s);}catch(e){}
 }
-function load() { try{const d=localStorage.getItem('notasU_inacap_v3');if(d)data=JSON.parse(d);}catch(e){} }
+function load() {
+  try{
+    const d=localStorage.getItem('notasU_inacap_v3');
+    if(d){
+      const parsed=JSON.parse(d);
+      // Limpiar asignaturas inválidas
+      if(parsed.subjects) parsed.subjects=parsed.subjects.filter(s=>s&&s.id&&s.name);
+      data=parsed;
+    }
+  }catch(e){data={subjects:[],lastSem:''};}
+}
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function clamp(v,mn,mx) { return Math.min(mx,Math.max(mn,v)); }
 function esc(s) { if(!s)return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -866,7 +876,7 @@ function renderCard(s) {
 
 
 function toggleCard(id){document.getElementById('sb-'+id)?.classList.toggle('open');}
-function reopenCard(id){setTimeout(()=>{document.getElementById('sb-'+id)?.classList.add('open');},10);}
+function reopenCard(id){setTimeout(()=>{const el=document.getElementById('sb-'+id);if(el)el.classList.add('open');},10);}
 function colorGradeInput(inp){const v=parseFloat(inp.value);inp.className='grade-input '+(isNaN(v)?'g-none':gc(v));}
 
 // ===================== DRAG & DROP =====================
@@ -956,70 +966,126 @@ function renderStats() {
 // ===================== SIMULATOR =====================
 function renderSimulator() {
   const c=document.getElementById('sim-content');
-  if(!data.subjects.length){c.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">Sin asignaturas</div><div class="empty-sub">Agrega asignaturas primero</div></div>`;return;}
-  c.innerHTML=`<p style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">Nota necesaria en evaluaciones pendientes para alcanzar tus metas.</p>`
-    +data.subjects.map(s=>{
-      const pctTotal=totalPct(s.evals);
-      const semGrade=calcSemGrade(s);
-      const grade=getCurrentGrade(s);
-      const examReq=requiresExam(s,semGrade);
-      const examPct=parseFloat(s.examPct)||25;
-      const thresh=parseFloat(s.examThreshold)||5.0;
-      const metas=s.metas&&s.metas.length?s.metas:[4.0,5.0,6.0];
-
-      // Todas las evals tienen nota y suman 100%
-      const allHaveGrade = s.evals.filter(e=>!e.isExam).every(e=>e.grade!==null&&e.grade!==undefined&&e.grade!=='');
-      if(pctTotal>=100&&allHaveGrade&&!examReq){
-        const fg=calcFinal(s);
-        const fv=parseFloat(fg);
-        const gradeEl=fv>=7.0?`<span class="grade-gold" style="width:36px;height:36px;font-size:16px;">${fmt(fg)}</span>`:`<span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600" class="${gc(fv)}">${fmt(fg)}</span>`;
-        return `<div class="sim-card"><div class="sim-card-header">
-          <div class="s-dot" style="background:${s.color};width:8px;height:8px;border-radius:2px;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0"><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
-          <div style="font-size:11px;color:var(--text3)">100% evaluado</div></div>
-          ${gradeEl}</div></div>`;
-      }
-
-      const rows=metas.map(t=>{
-        const n=neededGrade(s,t);
+  if(!data.subjects.length){
+    c.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">Sin asignaturas</div><div class="empty-sub">Agrega asignaturas primero</div></div>`;
+    return;
+  }
+  let html='<p style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">Nota necesaria para alcanzar tus metas en cada asignatura.</p>';
+  
+  data.subjects.forEach(s=>{
+    const normalEvals = s.evals.filter(e=>!e.isExam);
+    const metas = s.metas&&s.metas.length ? s.metas : [4.0,5.0,6.0];
+    
+    // Evals con y sin nota
+    const withGrade = normalEvals.filter(e=>e.grade!==null&&e.grade!==undefined&&e.grade!=='');
+    const withoutGrade = normalEvals.filter(e=>e.grade===null||e.grade===undefined||e.grade==='');
+    const pctDone = withGrade.reduce((s,e)=>s+(parseFloat(e.pct)||0),0);
+    const pctPending = withoutGrade.reduce((s,e)=>s+(parseFloat(e.pct)||0),0);
+    const pctTotal = normalEvals.reduce((s,e)=>s+(parseFloat(e.pct)||0),0);
+    
+    // Nota parcial actual (solo de las que tienen nota)
+    let doneW=0;
+    withGrade.forEach(e=>{ doneW+=parseFloat(e.grade)*parseFloat(e.pct); });
+    const semGrade = calcSemGrade(s);
+    const examReq = requiresExam(s, semGrade);
+    const grade = getCurrentGrade(s);
+    const gv = parseFloat(grade);
+    const gradeEl = gv>=7.0
+      ? `<span class="grade-gold" style="width:36px;height:36px;font-size:16px;font-weight:900;">${fmt(grade)}</span>`
+      : `<span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700" class="${gc(gv)}">${fmt(grade)}</span>`;
+    
+    const examPct = parseFloat(s.examPct)||25;
+    const thresh = parseFloat(s.examThreshold)||5.0;
+    
+    // HEADER de la tarjeta
+    let card = `<div class="sim-card">
+      <div class="sim-card-header">
+        <div class="s-dot" style="background:${s.color};width:8px;height:8px;border-radius:2px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+          <div style="font-size:11px;color:var(--text3)">${withoutGrade.length===0?'Todo evaluado':''+withoutGrade.length+' eval'+(withoutGrade.length!==1?'s':'')+' pendiente'+(withoutGrade.length!==1?'s':'')+' · '+pctPending+'%'}${examReq?' · ⚠ Examen':''}</div>
+        </div>
+        ${gradeEl}
+      </div>
+      <div class="sim-card-body">`;
+    
+    // CASO 0: Todo evaluado y 100%
+    if(withoutGrade.length===0 && pctTotal>=100 && !examReq) {
+      const fg=calcFinal(s);
+      const minPass=parseFloat(s.minPass)||4.0;
+      const fv=parseFloat(fg);
+      const status=fg>=minPass?'✅ Aprobado':'❌ Reprobado';
+      const gradeStr=fv>=7.0
+        ?`<span class="grade-gold" style="width:28px;height:28px;font-size:13px;font-weight:900;">${fmt(fg)}</span>`
+        :`<span class="sim-target-grade ${gc(fv)}">${fmt(fg)}</span>`;
+      card+=`<div class="sim-target-row"><span class="sim-target-label">${status}</span>${gradeStr}</div>`;
+    }
+    // CASO 1: Una sola eval pendiente — nota directa necesaria
+    else if(withoutGrade.length===1) {
+      const pendingEval = withoutGrade[0];
+      const pendingPct = parseFloat(pendingEval.pct);
+      card+=`<div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">En "${esc(pendingEval.name)}" (${pendingPct}%) necesitas</div>`;
+      metas.forEach(t=>{
+        // nota_necesaria = (target*pctTotal - doneW) / pendingPct
+        const needed = (t*pctTotal - doneW) / pendingPct;
         let txt,cls;
-        if(n===null){txt='—';cls='g-none';}
-        else if(n>7){txt='Imposible';cls='g-red';}
+        if(needed>7){txt='Imposible';cls='g-red';}
+        else if(needed<1){txt='Ya logrado';cls='g-green';}
+        else{txt=fmt(Math.max(1,needed));cls=gc(needed);}
+        card+=`<div class="sim-target-row">
+          <span class="sim-target-label">Meta <b style="color:var(--text)">${fmt(t)}</b></span>
+          <span class="sim-target-grade ${cls}">${txt}</span>
+        </div>`;
+      });
+    }
+    // CASO 2+: Múltiples evals pendientes — promedio necesario en % restante
+    else if(withoutGrade.length>=2) {
+      card+=`<div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">Promedio necesario en el ${pctPending}% restante</div>`;
+      metas.forEach(t=>{
+        const needed = pctPending===0 ? null : (t*pctTotal - doneW) / pctPending;
+        let txt,cls;
+        if(needed===null||pctPending===0){txt='—';cls='g-none';}
+        else if(needed>7){txt='Imposible';cls='g-red';}
+        else if(needed<1){txt='Ya logrado';cls='g-green';}
+        else{txt=fmt(Math.max(1,needed));cls=gc(needed);}
+        card+=`<div class="sim-target-row">
+          <span class="sim-target-label">Meta <b style="color:var(--text)">${fmt(t)}</b></span>
+          <span class="sim-target-grade ${cls}">${txt}</span>
+        </div>`;
+      });
+    }
+    // CASO: Sin evals ingresadas
+    else if(normalEvals.length===0) {
+      card+=`<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0">Agrega evaluaciones para simular</div>`;
+    }
+    
+    // EXAMEN FINAL si aplica
+    if(examReq && withoutGrade.length===0 && pctTotal>=100) {
+      card+=`<div style="border-top:1px solid rgba(240,165,0,0.2);padding:8px 0 0;margin-top:8px">
+        <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">⚠ Examen Final (${examPct}%)</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Nota sem. ${fmt(semGrade)}</div>`;
+      [...new Set([...metas,thresh])].sort((a,b)=>a-b).forEach(t=>{
+        const n=neededExamGrade(semGrade,examPct,t);
+        let txt,cls;
+        if(n>7){txt='Imposible';cls='g-red';}
         else if(n<1){txt='Ya logrado';cls='g-green';}
         else{txt=fmt(Math.max(1,n));cls=gc(n);}
-        return `<div class="sim-target-row"><span class="sim-target-label">Meta <b style="color:var(--text)">${fmt(t)}</b></span><span class="sim-target-grade ${cls}">${txt}</span></div>`;
-      }).join('');
-
-      let examRows='';
-      if(examReq&&pctTotal>=100){
-        examRows=`<div style="border-top:1px solid rgba(240,165,0,0.2);padding:8px 0 0;margin-top:8px">
-          <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Examen Final (${examPct}%)</div>
-          ${[...new Set([...metas,thresh])].sort((a,b)=>a-b).map(t=>{
-            const n=neededExamGrade(semGrade,examPct,t);
-            let txt,cls;
-            if(n>7){txt='Imposible';cls='g-red';}else if(n<1){txt='Ya logrado';cls='g-green';}
-            else{txt=fmt(Math.max(1,n));cls=gc(n);}
-            return `<div class="sim-target-row"><span class="sim-target-label" style="color:var(--text2)">Examen para <b style="color:var(--amber)">${fmt(t)}</b></span><span class="sim-target-grade ${cls}">${txt}</span></div>`;
-          }).join('')}
+        card+=`<div class="sim-target-row">
+          <span class="sim-target-label" style="color:var(--text2)">Examen para <b style="color:var(--amber)">${fmt(t)}</b></span>
+          <span class="sim-target-grade ${cls}">${txt}</span>
         </div>`;
-      }
-
-      const gv=parseFloat(grade);
-      const gradeEl=gv>=7.0?`<span class="grade-gold" style="width:36px;height:36px;font-size:16px;">${fmt(grade)}</span>`:`<span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600" class="${gc(gv)}">${fmt(grade)}</span>`;
-
-      return `<div class="sim-card">
-        <div class="sim-card-header">
-          <div class="s-dot" style="background:${s.color};width:8px;height:8px;border-radius:2px;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
-            <div style="font-size:11px;color:var(--text3)">${100-pctTotal}% pendiente${examReq?' · ⚠ Requiere examen':''}</div>
-          </div>
-          ${gradeEl}
-        </div>
-        <div class="sim-card-body">${rows}${examRows}</div>
-      </div>`;
-    }).join('')+`<div class="app-footer">Josué Fuenzalida · 2026</div>`;
+      });
+      card+=`</div>`;
+    }
+    
+    card+=`</div></div>`;
+    html+=card;
+  });
+  
+  html+=`<div class="app-footer">Josué Fuenzalida · 2026</div>`;
+  c.innerHTML=html;
 }
+
 
 // ===================== CUSTOM CONFIRM =====================
 function showConfirm(icon, title, msg, okLabel, okClass, cb) {
@@ -1187,8 +1253,7 @@ function saveEval(){
 // ===================== SETTINGS =====================
 function openSettings(){
   document.getElementById('inp-username').value=settings.username||'';
-  document.getElementById('settings-version').textContent=APP_VERSION;
-  document.getElementById('suggestion-text').value='';
+  const sv=document.getElementById('settings-version');if(sv)sv.textContent=APP_VERSION;
   buildThemeGrid();
   document.getElementById('btn-dark').classList.toggle('selected',settings.mode!=='light');
   document.getElementById('btn-light').classList.toggle('selected',settings.mode==='light');
@@ -1216,13 +1281,9 @@ function handleImport(e){
   reader.readAsText(file);
   e.target.value='';
 }
-function sendSuggestion(){
-  const text=document.getElementById('suggestion-text').value.trim();
-  if(!text){showToast('Escribe tu sugerencia primero');return;}
   const subject=encodeURIComponent('Sugerencia MisNotas v'+APP_VERSION);
   const body=encodeURIComponent(text);
   window.open(`mailto:${SUGGESTION_EMAIL}?subject=${subject}&body=${body}`,'_blank');
-  document.getElementById('suggestion-text').value='';
   showToast('Abriendo cliente de correo...');
 }
 
@@ -1267,7 +1328,7 @@ if(!data.subjects.length){
   save();
 }
 renderAll();
-setTimeout(()=>{document.getElementById('sb-'+data.subjects[0]?.id)?.classList.add('open');},80);
+// tarjetas cerradas al inicio
 setTimeout(checkForUpdates,2000);
 </script>
 <script>
