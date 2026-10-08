@@ -1281,11 +1281,6 @@ function handleImport(e){
   reader.readAsText(file);
   e.target.value='';
 }
-  const subject=encodeURIComponent('Sugerencia MisNotas v'+APP_VERSION);
-  const body=encodeURIComponent(text);
-  window.open(`mailto:${SUGGESTION_EMAIL}?subject=${subject}&body=${body}`,'_blank');
-  showToast('Abriendo cliente de correo...');
-}
 
 function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
 function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
